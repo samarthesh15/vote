@@ -1,21 +1,53 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Timeline from './components/Timeline';
 import PracticeBallot from './components/PracticeBallot';
 import CivicScore from './components/CivicScore';
 import AssistantOrb from './components/AssistantOrb';
 import AccessibilityMenu from './components/AccessibilityMenu';
+import Auth from './components/Auth';
+import { auth, db } from './services/firebase';
+import { fetchVoterInfo } from './services/civicApi';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sun, Moon } from 'lucide-react';
 
 function App() {
   const [scenario, setScenario] = useState(null);
   const [score, setScore] = useState(150);
+  const [user, setUser] = useState(null);
+  
+  const [address, setAddress] = useState('');
+  const [voterInfo, setVoterInfo] = useState(null);
+  const [loadingInfo, setLoadingInfo] = useState(false);
   
   // Theming and Accessibility States
   const [isLightMode, setIsLightMode] = useState(false);
   const [isHighContrast, setIsHighContrast] = useState(false);
   const [isLargeText, setIsLargeText] = useState(false);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
+
+  useEffect(() => {
+    let unsubscribe = () => {};
+    // Only listen if Firebase isn't mocking with a fake API key
+    if (import.meta.env.VITE_FIREBASE_API_KEY) {
+      unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        setUser(currentUser);
+        if (currentUser) {
+          try {
+            const userRef = doc(db, 'users', currentUser.uid);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+              setScore(userSnap.data().civicScore || 150);
+            }
+          } catch(e) {
+            console.error("Error fetching score", e);
+          }
+        }
+      });
+    }
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -26,8 +58,14 @@ function App() {
   }, [isLightMode, isHighContrast, isLargeText, isReducedMotion]);
 
   const handleVote = useCallback(() => {
-    setScore(prev => prev + 50);
-  }, []);
+    setScore(prev => {
+      const newScore = prev + 50;
+      if (user && import.meta.env.VITE_FIREBASE_API_KEY) {
+        setDoc(doc(db, 'users', user.uid), { civicScore: newScore }, { merge: true }).catch(console.error);
+      }
+      return newScore;
+    });
+  }, [user]);
 
   const handleKeyDown = (e, action) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -36,9 +74,20 @@ function App() {
     }
   };
 
+  const handleFetchCivicData = async (e) => {
+    e.preventDefault();
+    if (!address.trim()) return;
+    setLoadingInfo(true);
+    const data = await fetchVoterInfo(address);
+    setVoterInfo(data);
+    setLoadingInfo(false);
+  };
+
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '4rem 2rem', position: 'relative' }}>
       
+      <Auth user={user} />
+
       <AccessibilityMenu 
         isHighContrast={isHighContrast} setIsHighContrast={setIsHighContrast}
         isLargeText={isLargeText} setIsLargeText={setIsLargeText}
@@ -138,6 +187,41 @@ function App() {
               {scenario === 'real-time' && (
                 <article style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                   <CivicScore score={score} />
+                  
+                  <div className="liquid-glass" style={{ padding: '2rem', borderRadius: '12px' }}>
+                    <h3 style={{ marginTop: 0 }}>Find Your Polling Place</h3>
+                    <form onSubmit={handleFetchCivicData} style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                      <input 
+                        type="text" 
+                        placeholder="Enter your registered address" 
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--glass-bg)', color: 'var(--text-primary)' }}
+                      />
+                      <button type="submit" disabled={loadingInfo} style={{ padding: '0.75rem 1.5rem', borderRadius: '8px', border: 'none', background: 'var(--accent-blue)', color: '#fff', cursor: loadingInfo ? 'not-allowed' : 'pointer' }}>
+                        {loadingInfo ? 'Loading...' : 'Search'}
+                      </button>
+                    </form>
+                    
+                    {voterInfo && voterInfo.election && (
+                      <div style={{ padding: '1rem', background: 'var(--glass-highlight)', borderRadius: '8px' }}>
+                        <h4 style={{ margin: '0 0 0.5rem 0' }}>{voterInfo.election.name}</h4>
+                        <p style={{ margin: '0 0 1rem 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Date: {voterInfo.election.electionDay}</p>
+                        
+                        {voterInfo.pollingLocations && voterInfo.pollingLocations.length > 0 ? (
+                          <div>
+                            <strong>Polling Location:</strong>
+                            <p style={{ margin: '0.25rem 0' }}>{voterInfo.pollingLocations[0].address.locationName}</p>
+                            <p style={{ margin: '0.25rem 0' }}>{voterInfo.pollingLocations[0].address.line1}, {voterInfo.pollingLocations[0].address.city}, {voterInfo.pollingLocations[0].address.state}</p>
+                            <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Hours: {voterInfo.pollingLocations[0].pollingHours}</p>
+                          </div>
+                        ) : (
+                          <p style={{ color: 'var(--text-secondary)' }}>No specific polling location found for this address.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <PracticeBallot onVote={handleVote} />
                 </article>
               )}
