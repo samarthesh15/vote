@@ -3,17 +3,27 @@ import Timeline from './components/Timeline';
 import PracticeBallot from './components/PracticeBallot';
 import CivicScore from './components/CivicScore';
 import AssistantOrb from './components/AssistantOrb';
+import AccessibilityMenu from './components/AccessibilityMenu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sun, Moon } from 'lucide-react';
 
 function App() {
   const [scenario, setScenario] = useState(null);
   const [score, setScore] = useState(150);
+  
+  // Theming and Accessibility States
   const [isLightMode, setIsLightMode] = useState(false);
+  const [isHighContrast, setIsHighContrast] = useState(false);
+  const [isLargeText, setIsLargeText] = useState(false);
+  const [isReducedMotion, setIsReducedMotion] = useState(false);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('light', isLightMode);
-  }, [isLightMode]);
+    const root = document.documentElement;
+    root.classList.toggle('light', isLightMode);
+    root.classList.toggle('high-contrast', isHighContrast);
+    root.classList.toggle('large-text', isLargeText);
+    root.classList.toggle('reduce-motion', isReducedMotion);
+  }, [isLightMode, isHighContrast, isLargeText, isReducedMotion]);
 
   const handleVote = useCallback(() => {
     setScore(prev => prev + 50);
@@ -28,6 +38,13 @@ function App() {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '4rem 2rem', position: 'relative' }}>
+      
+      <AccessibilityMenu 
+        isHighContrast={isHighContrast} setIsHighContrast={setIsHighContrast}
+        isLargeText={isLargeText} setIsLargeText={setIsLargeText}
+        isReducedMotion={isReducedMotion} setIsReducedMotion={setIsReducedMotion}
+      />
+
       <button 
         onClick={() => setIsLightMode(!isLightMode)}
         aria-label={isLightMode ? "Switch to dark mode" : "Switch to light mode"}

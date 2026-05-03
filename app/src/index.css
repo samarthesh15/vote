@@ -145,3 +145,44 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+/* Accessibility Utilities */
+.high-contrast {
+  --midnight-bg: #000000;
+  --glass-bg: #000000;
+  --glass-border: #FFFFFF;
+  --text-primary: #FFFFFF;
+  --text-secondary: #CCCCCC;
+  --accent-blue: #00FFFF;
+  --accent-purple: #FF00FF;
+  --title-gradient-1: #FFFFFF;
+  --title-gradient-2: #FFFFFF;
+}
+.high-contrast.light {
+  --midnight-bg: #FFFFFF;
+  --glass-bg: #FFFFFF;
+  --glass-border: #000000;
+  --text-primary: #000000;
+  --text-secondary: #333333;
+  --accent-blue: #0000EE;
+  --accent-purple: #8B008B;
+  --title-gradient-1: #000000;
+  --title-gradient-2: #000000;
+}
+.high-contrast .liquid-glass {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-width: 2px;
+  box-shadow: none !important;
+}
+
+.large-text {
+  font-size: 110%; /* Increases root rem globally */
+}
+
+.reduce-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
